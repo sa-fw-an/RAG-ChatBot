@@ -3,3 +3,4 @@ venv
 chroma*
 chat*
 __pycache__
+.DS_Store
