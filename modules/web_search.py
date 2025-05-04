@@ -93,7 +93,7 @@ def enhance_with_web_search(query: str, kb_results: List[Dict]) -> List[Dict]:
     search_results = google_search(
         query, 
         st.secrets["GOOGLE_API_KEY"], 
-        cse_id="876484991592c493d"  # Your specific CSE ID
+        cse_id=st.secrets["GOOGLE_CSE_ID"]
     )
     
     # Convert search results to context items
