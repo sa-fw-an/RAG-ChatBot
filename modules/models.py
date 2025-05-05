@@ -144,4 +144,4 @@ def extract_relevant_chat_history(query, chat_history, semantic_model, max_pairs
     
     # Sort by similarity and take top matches
     exchanges.sort(key=lambda x: x['similarity'], reverse=True)
-    return exchanges[:max_pairs]
+    return exchanges[:max_pairs] 
