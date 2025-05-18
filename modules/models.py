@@ -2,6 +2,7 @@
 LLM and embedding model management.
 """
 import os
+import requests
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_groq import ChatGroq
 from langchain.schema import HumanMessage, SystemMessage
@@ -19,7 +20,9 @@ def initialize_semantic_model():
 
 def initialize_llm(model_name="deepseek-r1-distill-qwen-32b"):
     """Initialize and return the Groq LLM client."""
-    api_key = st.secrets["GROQ_API_KEY"]
+    api_key = st.secrets.get("GROQ_API_KEY") or os.environ.get("GROQ_API_KEY")
+    if not api_key:
+        raise ValueError("GROQ_API_KEY is not set in streamlit secrets or environment variables.")
     
     return ChatGroq(
         temperature=0.7,
@@ -28,14 +31,26 @@ def initialize_llm(model_name="deepseek-r1-distill-qwen-32b"):
     )
 
 def get_available_models():
-    """Get list of available models from Groq."""
-    return [
-        "llama3-70b-8192",
-        "llama3-8b-8192",
-        "deepseek-r1-distill-qwen-32b",
-        "mistral-saba-24b",
-        "gemma2-9b-it"
-    ]
+    """Get list of available models from Groq via their REST API."""
+    api_key = st.secrets.get("GROQ_API_KEY") or os.environ.get("GROQ_API_KEY")
+    if not api_key:
+        st.error("Cannot fetch models: GROQ_API_KEY is not set.")
+        return []
+    
+    url = "https://api.groq.com/openai/v1/models"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+    try:
+        resp = requests.get(url, headers=headers, timeout=10)
+        resp.raise_for_status()
+        data = resp.json()
+        models = [m.get("id") for m in data.get("data", []) if m.get("id")]
+        return models
+    except Exception as e:
+        st.error(f"Failed to fetch available models from Groq: {e}")
+        return []
 
 def evaluate_response(query, response, context, semantic_model):
     """Evaluate the quality of the response compared to the context."""
@@ -87,7 +102,6 @@ def query_llm(user_query, llm, chat_history, context, semantic_model, model_name
     
     # Create the final prompt
     system_prompt = system_prompt.format(model=model_name)
-    
     messages = [
         SystemMessage(content=system_prompt),
         HumanMessage(content=f"""
@@ -112,7 +126,7 @@ def query_llm(user_query, llm, chat_history, context, semantic_model, model_name
     except Exception as e:
         error_message = f"⚠️ API Error: {str(e)}"
         return error_message, 0.0
-    
+
 def extract_relevant_chat_history(query, chat_history, semantic_model, max_pairs=3):
     """Extract chat history exchanges that are semantically related to the current query."""
     if not chat_history or len(chat_history) < 2:
@@ -124,24 +138,23 @@ def extract_relevant_chat_history(query, chat_history, semantic_model, max_pairs
     # Group chat history into user-assistant pairs
     exchanges = []
     for i in range(0, len(chat_history) - 1, 2):
-        if i+1 < len(chat_history):
-            if chat_history[i]['role'] == 'user' and chat_history[i+1]['role'] == 'assistant':
-                user_msg = chat_history[i]['content']
-                assistant_msg = chat_history[i+1]['content']
-                combined = f"{user_msg} {assistant_msg}"
-                
-                # Encode the combined exchange
-                exchange_embedding = semantic_model.encode(combined, convert_to_tensor=True)
-                
-                # Calculate similarity
-                similarity = util.pytorch_cos_sim(query_embedding, exchange_embedding)[0][0].item()
-                
-                exchanges.append({
-                    'user': user_msg,
-                    'assistant': assistant_msg,
-                    'similarity': similarity
-                })
+        if chat_history[i]['role'] == 'user' and chat_history[i+1]['role'] == 'assistant':
+            user_msg = chat_history[i]['content']
+            assistant_msg = chat_history[i+1]['content']
+            combined = f"{user_msg} {assistant_msg}"
+            
+            # Encode the combined exchange
+            exchange_embedding = semantic_model.encode(combined, convert_to_tensor=True)
+            
+            # Calculate similarity
+            similarity = util.pytorch_cos_sim(query_embedding, exchange_embedding)[0][0].item()
+            
+            exchanges.append({
+                'user': user_msg,
+                'assistant': assistant_msg,
+                'similarity': similarity
+            })
     
     # Sort by similarity and take top matches
     exchanges.sort(key=lambda x: x['similarity'], reverse=True)
-    return exchanges[:max_pairs] 
+    return exchanges[:max_pairs]
