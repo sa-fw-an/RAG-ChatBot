@@ -153,4 +153,4 @@ See `requirements.txt`. Key libraries include:
 
 ## License
 
-This project is released under the MIT License.  
+This project is released under the MIT License.
