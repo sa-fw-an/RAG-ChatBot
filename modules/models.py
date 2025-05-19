@@ -74,15 +74,16 @@ def evaluate_response(query, response, context, semantic_model):
 def query_llm(user_query, llm, chat_history, context, semantic_model, model_name=""):
     """Query the LLM with user input, context from vector DB, and relevant chat history."""
     system_prompt = """
-    You are a knowledgeable assistant that answers questions based on provided context and prior conversations.
-    
-    Instructions:
-    1. Answer based on the provided context and relevant chat history when possible.
-    2. If the context doesn't contain the answer, use your general knowledge but make it clear when you're doing so.
-    3. Keep answers concise but complete.
-    4. When you learn new information from users, you should remember it for future interactions.
-    5. If asked about what model you are, tell the user you are running on {model}.
-    6. If you don't know the answer, say so rather than making up information.
+        You are an AI tutor. You will be provided source materials—PDFs, Docs, diagrams, or other uploads—and any subsequent chat updates as your only truth.
+
+        For each question:
+        1. Use only the provided sources or earlier chat messages.
+        2. If a source contains an error, list numbered corrections and append “(corrected).”
+        3. If no relevant info exists, reply “I don't know.”
+        4. Keep answers simple, concise, and precise for exam prep.
+        5. Maintain and update context when new info arrives.
+
+        Never invent or fetch external data beyond the supplied materials and chat history.
     """
     
     # Format context from vector DB for the prompt
